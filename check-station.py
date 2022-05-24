@@ -1,134 +1,169 @@
-from ast import pattern
-from sys import stderr, stdout
-import time
-from unittest import result
-import paramiko
 import re
+import paramiko
+import time
+import colorama
+from colorama import init, Fore
 
-from colorama import init, Fore 
-from colorama import Back 
-from colorama import Style 
+l = []
 
-# Инфа о машине, к которой удалённо подключаюсь
+mer = ['| ИАФ.2 |', '| ИАФ.3 |', '| ИАФ.4 |', '| УПД.6 |', '| АУД.3 |', '| УПД.4 |', '| ОПС.1 |', '| ЗНИ.7 |']
+top = ['link/ether', '45', 'minlen=8lcredit=-1ucredit=-1dcredit=-1ocredit=-1gecoscheckreject_username', 
+'per_userdeny=4unlock_time=300', 'restrict192.168.56.0mask255.255.255.0nomodifynotrap', 
+'astra-admin:x:1001:rasuadmin', 'enabled', 'floppy:x:25:rasuadmin']
 
-# Имя хоста или его ip адрес.
-hostname = '192.168.56.103'
-hostname1 = '192.168.56.104'
-# Имя пользователя 
-username = 'rasuadmin'
-# Пароль пользователя
-password = '********'
-# По умолчанию paramiko выполняет аутентификацию по ключам, для отключения такого типа утентификации поставить значение False.
-#look_for_keys = False
-# Paramiko может подключаться к локальному SSH - агенту ОС. Это необходимо при работе с ключами. В данном случае утентификация
-#происходит по логину и паролю, значит это надо отключить.
-#allow_agent = False
 short_pause = 1
-port = 22
 
-# Создаем клиент ssh. Этот класс представляет соединение с SSH сервером. Он выполняет аутентификацию клиента.
-client = paramiko.SSHClient()
-# Устанавливает, какую политику использовать, когда выполняется подключение к серверу, ключ которого неизвестен.
-# AutoAddPolicy() - политика, которая автоматически добавляет новое имя хоста и ключ в локальный объект HostKeys.
-client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-# Метод, который выполняет подключение к SSH - серверу и аутентифицирует подключение.
-client.connect(hostname=hostname, port=port, username=username, password=password) 
+print('Сколько машин необходимо проверить?')
 
-ssh = client.invoke_shell()
+n = int(input())
 
-# Выполнить команду и вернуть результат
-stdin, stdout, stderr = client.exec_command("cat /etc/pam.d/common-password | grep 'pam_cracklib.so retry'")
+if n == 1:
+    #Узнаём адрес
+    print('Введите ip адрес машины')
+    host0 = input()
+    l.append(host0)
 
-ssh.send("cat /etc/pam.d/common-password | grep 'pam_cracklib.so retry'\n")
-time.sleep(short_pause)
+i = 0
+host = ""
+if n > 1:
+    while i < n:
+        print('Введите ip адрес машины ', i)
+        addr = input()
+        hostname = host + addr
+        l.append(hostname)
+        i = i + 1
 
-k = ssh.recv(3000)
-#print(k)
+otchet = open("Otchet.txt", "w+") 
 
-#data = stdout.read() + stderr.read()
+hostnames = l
+for i, hostname in enumerate(hostnames):
 
-#print(stdout.readlines)
+    results = []
 
-client.close()
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(hostname=hostname, port=22, username="rasuadmin", password="********") 
 
-client1 = paramiko.SSHClient()
-# Устанавливает, какую политику использовать, когда выполняется подключение к серверу, ключ которого неизвестен.
-# AutoAddPolicy() - политика, которая автоматически добавляет новое имя хоста и ключ в локальный объект HostKeys.
-client1.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-# Метод, который выполняет подключение к SSH - серверу и аутентифицирует подключение.
-client1.connect(hostname=hostname1, port=port, username=username, password=password) 
+    ssh = client.invoke_shell()
+    ssh.send("ip a | grep 'link/ether'\n")
+    ssh.send("cat /etc/login.defs | grep 'PASS_MAX_DAYS'\n")
+    ssh.send("cat /etc/pam.d/common-password | grep 'pam_cracklib.so minlen'\n")
+    ssh.send("cat /etc/group | grep astra-admin\n")
+    ssh.send("cat /etc/pam.d/common-auth | grep 'pam_tally.so per_user'\n")
+    ssh.send("systemctl is-enabled networking.service\n")
+    ssh.send("cat /etc/group | grep floppy\n")
+    ssh.send("cat /etc/ntp.conf | grep 'restrict 192.168.56.0'\n")
+    ssh.send("cat /var/log/auth.log | grep 'pam_unix.so(sudo:session)'\n")
 
-
-ssh = client1.invoke_shell()
-
-# Выполнить команду и вернуть результат
-stdin, stdout, stderr = client1.exec_command("cat /etc/pam.d/common-password | grep 'pam_cracklib.so retry'")
-
-ssh.send("cat /etc/pam.d/common-password | grep 'pam_cracklib.so retry'\n")
-time.sleep(short_pause)
-
-k1 = ssh.recv(3000)
-#print(k)
-
-#data = stdout.read() + stderr.read()
-
-#print(stdout.readlines)
-
-client1.close()
-
-#print(k)
-#print(k1)
-
-s = str(k)
-s1 = str(k1)
-
-pattern = r"retry=3 minlen=8 difok=3"
-result = re.search(pattern, s)
-result1 = re.search(pattern, s1)
-
-#result0 = result.group(0)
-#print(result)
-#print(result1)
-#result2 = result1.group(0)
-
-#print(result1)
-
-#print(result1 == "deny=8")
-if result == None:
-    result = "None"
-else:
-    result0 = result.group(0)
-
-if result1 == None:
-    result1 = "None"
-else:
-    result2 = result1.group(0)
-
-init(autoreset=True) 
-
-ok = Fore.GREEN + 'OK' 
-neok = Fore.RED + 'BAD'
-endresult = Fore.WHITE + ' | Проверка проведена успешно. Парольная политика соотвествует заданному значению |'
-endresult1 = Fore.WHITE + ' | В процессе проверки выявлены следующие несоотвествия: ожидалось [retry=3 minlen=8 difok=3], получено [retry=3 minlen=8 difok=1] |'
-
-my_file = open("Otchet.txt", "w+")
-
-if result0 == "retry=3 minlen=8 difok=3":
-    my_file.write('ПК 1 - ' + hostname)
-    my_file.write('\n')
-    my_file.write("| ИАФ.4 | " + ok + endresult)
-    my_file.write('\n')
-
-my_file = open("Otchet.txt", "a+")
+    time.sleep(short_pause)
     
-if result1 != "retry=3 minlen=8 difok=3":
-    my_file.write('ПК 2 - ' + hostname1)
-    my_file.write('\n')
-    my_file.write("| ИАФ.4 | " + neok + endresult1)
-    my_file.write('\n')
+    k = ssh.recv(12000).decode("utf-8")
 
+    client.close()
 
-my_file.close()
+    s = str(k)
+
+    # ИАФ.2
+    pattern = r"link/ether"
+    result = re.search(pattern, s)
+    if result == None:
+        result = 'None'
+        results.append(result)
+    else:
+        result0 = result.group(0)
+        results.append(result0)
+
+    # ИАФ.3
+    pattern = r"45"
+    result1 = re.search(pattern, s)
+    if result1 == None:
+        result1 = 'None'
+        results.append(result1)
+    else:
+        result2 = result1.group(0)
+        results.append(result2)
+
+    # Убираем пробелы из вывода
+    pattern = r"\s"
+    result3 = re.sub(pattern, "", s)
+
+    result7 = re.search(r"per_userdeny=4unlock_time=300", result3)
+    result13 = re.search(r"restrict192.168.56.0mask255.255.255.0nomodifynotrap", result3)
+    result3 = re.search(r"minlen=8lcredit=-1ucredit=-1dcredit=-1ocredit=-1gecoscheckreject_username", result3)
+    # ИАФ.4
+    if result3 == None:
+        result3 = 'None'
+        results.append(result3)
+    else:
+        result4 = result3.group(0)
+        results.append(result4)
+    # УПД.6
+    if result7 == None:
+        result7 = 'None'
+        results.append(result7)
+    else:
+        result8 = result7.group(0)
+        results.append(result8)
+    # АУД.3
+    if result13 == None:
+        result13 = 'None'
+        results.append(result13)
+    else:
+        result14 = result13.group(0)
+        results.append(result14)
+    
+    # УПД.4
+    pattern = r"astra-admin:x:1001:rasuadmin"
+    result5 = re.search(pattern, s)
+    if result5 == None:
+        result5 = 'None'
+        results.append(result5)
+    else:
+        result6 = result5.group(0) 
+        results.append(result6)
+
+    # ОПС.1
+    pattern = r"enabled"
+    result9 = re.search(pattern, s)
+    if result9 == None:
+        result9 = 'None'
+        results.append(result9)
+    else:
+        result10 = result9.group(0)
+        results.append(result10)
+
+    # ЗНИ.7
+    pattern = r"floppy:x:25:rasuadmin"
+    result11 = re.search(pattern, s)
+    if result11 == None:
+        result11 = 'None'
+        results.append(result11)
+    else:
+        result12 = result11.group(0)
+        results.append(result12)
+    
+    init(autoreset=True) 
+    ok = Fore.GREEN + 'OK' 
+    neok = Fore.RED + 'BAD'
+    okresult = Fore.WHITE + ' | Проверка проведена успешно. Полученное значение соотвествует требованиям |'
+    badresult = Fore.WHITE + '| Проверка не пройдена, требуется донастройка                              |'
+
+    otchet = open("Otchet.txt", "a+")
+    otchet.write('ПК - ')
+    otchet.write(str(i)) 
+    otchet.write(' - ') 
+    otchet.write(hostname)
+    otchet.write('\n')
+
+    for j, res in enumerate(results):
+        if res == top[j]:
+            otchet = open("Otchet.txt", "a+")
+            otchet.write(mer[j] + ok + okresult)
+            otchet.write('\n')
+        if res != top[j]:
+            otchet = open("Otchet.txt", "a+")
+            otchet.write(mer[j] + neok + badresult)
+            otchet.write('\n')
 
 with open("Otchet.txt", "r") as file: 
     content = file.read() 
